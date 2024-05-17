@@ -77,7 +77,7 @@ fetch("../src/audio.wasm").then((response) => response.arrayBuffer())
     addButton("adpcm").onclick = function () {
         let decoder = new Adpcm(wasm, importObj);
         decoder.resetDecodeState(new Adpcm.State(0, 0));
-        decodeAudio("demo11.adpcm", decoder.decode.bind(decoder));
+        decodeAudio("demo2.adpcm", decoder.decode.bind(decoder));
     }
     
     addButton("g711a").onclick = function () {
