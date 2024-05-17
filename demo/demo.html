@@ -1,0 +1,91 @@
+<html>
+<meta charset="UTF-8">
+<head>
+</head>
+<body>
+
+<h1>DEMO</h1>
+
+</body>
+
+<script type="text/javascript" src="../src/std.js"></script>
+<script type="text/javascript" src="../src/pcm_player.js"></script>
+<script type="text/javascript" src="../src/g726.js"></script>
+<script type="text/javascript" src="../src/g711.js"></script>
+<script type="text/javascript" src="../src/adpcm.js"></script>
+
+<script>
+
+//这里只演示解码与播放流程，编码流程与之类似。
+//如无法运行，请确认浏览器版本是否支持Webassembly.
+//相关问题欢迎反馈：1026397500@qq.com
+
+const memory = new WebAssembly.Memory({initial: 256, maximum: 256});
+
+const importObj = {
+    env: {
+        abortStackOverflow: () => { throw new Error("overflow"); },
+        table: new WebAssembly.Table({ initial: 0, maximum: 0, element: "anyfunc" }),
+        tableBase: 0,
+        memory: memory,
+        memoryBase: 102400,
+        STACKTOP: 0,
+        STACK_MAX: memory.buffer.byteLength,
+    }
+};
+
+function addButton(name)
+{
+    let button = document.createElement("button");
+    document.body.appendChild(button);
+    button.innerText = name;
+    document.body.appendChild(document.createElement("br"));
+    document.body.appendChild(document.createElement("br"));
+    return button;
+}
+
+let pcmPlayer = null;
+
+function decodeAudio(fileName, decodeCallback)
+{
+    if(pcmPlayer != null)
+    {
+        pcmPlayer.close();
+    }
+    pcmPlayer = new PCMPlayer(1, 8000);
+    fetch(fileName).then((response) => response.arrayBuffer())
+    .then((bytes) => {
+        let audioData = new Uint8Array(bytes);
+        let step = 160;
+        for(let i = 0; i < audioData.byteLength; i += step)
+        {
+            let pcm16BitData = decodeCallback(audioData.slice(i, i + step));
+            let pcmFloat32Data = Std.shortToFloatData(pcm16BitData);
+            pcmPlayer.feed(pcmFloat32Data);
+        }
+    });
+}
+
+fetch("../src/audio.wasm").then((response) => response.arrayBuffer())
+.then((bytes) => WebAssembly.instantiate(bytes, importObj))
+.then((wasm) => {
+    addButton("g726be16k").onclick = function () {
+        let decoder = new G726(wasm, importObj, 2);
+        decodeAudio("demo.g726be16k", decoder.decodeBe.bind(decoder));
+    }
+    
+    addButton("adpcm").onclick = function () {
+        let decoder = new Adpcm(wasm, importObj);
+        decoder.resetDecodeState(new Adpcm.State(0, 0));
+        decodeAudio("demo.adpcm", decoder.decode.bind(decoder));
+    }
+    
+    addButton("g711a").onclick = function () {
+        let decoder = new G711(wasm, importObj);
+        decodeAudio("demo.g711a", decoder.decodeA.bind(decoder));
+    }
+});
+
+</script>
+
+</html>
